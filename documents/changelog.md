@@ -1,3 +1,20 @@
+Unreleased - pkg_extractor PFS extraction fixes
+=================
+
+- Read the full PFS image declared by the header instead of the
+  `pfs_cache_size * 2` window, so small (DLC/unlock) and large (game)
+  packages both validate and decrypt.
+- PFSC view reuses the decrypted buffer instead of copying it (avoids a
+  third full-image allocation on large games).
+- Per-file sector reads use the full image size for range checks and clamp
+  the final 0x11000-byte window to the PKG with zero-padding.
+- Inode table parsing restarts the record stride at each PFSC block
+  (records never span blocks); previously block 2+ was read out of phase
+  and valid inodes looked like zeros.
+- Verified against Crash Team Racing Nitro Fueled (CUSA13795): base game
+  (12.6GB, 582 files), update v1.21 (7.9GB, 176 entries), 3 DLC unlock
+  packages. See documents/pkg-extraction.md for details.
+
 v0.4.0 31/10/2024 - codename divicius
 =================
 
