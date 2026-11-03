@@ -535,11 +535,9 @@ bool PKG::Extract(const std::filesystem::path& filepath, const std::filesystem::
     }
 
     const u64 pfs_image_offset = pkgheader.pfs_image_offset;
-    const u64 pfs_image_size = static_cast<u64>(pkgheader.pfs_cache_size) * 2;
+    const u64 pfs_image_size = static_cast<u64>(pkgheader.pfs_image_size);
     if (pfs_image_size == 0 || pfs_image_size > std::numeric_limits<size_t>::max() ||
         pfs_image_size % 0x1000 != 0 ||
-        !IsRangeWithin(pfs_image_offset, pkgheader.pfs_image_size, package_size) ||
-        pfs_image_size > pkgheader.pfs_image_size ||
         !IsRangeWithin(pfs_image_offset, pfs_image_size, package_size) ||
         !IsRangeWithin(pfs_image_offset, 0x370 + sizeof(std::array<u8, 16>), package_size)) {
         failreason = "Invalid PFS image range or size";
@@ -573,8 +571,8 @@ bool PKG::Extract(const std::filesystem::path& filepath, const std::filesystem::
         failreason = "PFSC header is truncated";
         return false;
     }
-    std::vector<u8> pfsc(pfs_decrypted.begin() + static_cast<size_t>(pfsc_offset),
-                         pfs_decrypted.end());
+    std::vector<u8> pfsc = std::move(pfs_decrypted);
+    pfsc.erase(pfsc.begin(), pfsc.begin() + static_cast<size_t>(pfsc_offset));
 
     PFSCHdr pfs_header{};
     std::memcpy(&pfs_header, pfsc.data(), sizeof(pfs_header));
@@ -993,7 +991,7 @@ bool PKG::ExtractFiles(const int index) try {
     }
 
     constexpr size_t pfs_buffer_size = 0x11000;
-    const u64 pfs_image_size = static_cast<u64>(pkgheader.pfs_cache_size) * 2;
+    const u64 pfs_image_size = static_cast<u64>(pkgheader.pfs_image_size);
     std::vector<u8> encrypted_pfs(pfs_buffer_size);
     std::vector<u8> decrypted_pfs(pfs_buffer_size);
     std::vector<char> compressed_data;
@@ -1017,17 +1015,25 @@ bool PKG::ExtractFiles(const int index) try {
         const u64 relative_offset = pfsc_offset + sector_offset;
         const u64 aligned_offset = relative_offset & ~u64(0xFFF);
         const u64 previous_data = relative_offset - aligned_offset;
-        if (!IsRangeWithin(aligned_offset, encrypted_pfs.size(), pfs_image_size) ||
-            !IsRangeWithin(pkgheader.pfs_image_offset, aligned_offset + encrypted_pfs.size(),
-                           pkgheader.pkg_size)) {
+        const u64 file_offset = pkgheader.pfs_image_offset + aligned_offset;
+        // The final sector of the image can end before a full buffer: clamp
+        // the read to the PKG and zero-pad the tail. Only the bytes covering
+        // [previous_data, previous_data + sector_size) are consumed below.
+        u64 readable = 0;
+        if (file_offset < pkgheader.pkg_size) {
+            readable = pkgheader.pkg_size - file_offset;
+        }
+        const size_t want = static_cast<size_t>(std::min<u64>(encrypted_pfs.size(), readable));
+        if (previous_data + sector_size > want) {
             return false;
         }
-        const u64 file_offset = pkgheader.pfs_image_offset + aligned_offset;
         const u64 current_sector = aligned_offset / 0x1000;
         if (!pkg_file.Seek(static_cast<s64>(file_offset)) ||
-            pkg_file.Read(encrypted_pfs) != encrypted_pfs.size()) {
+            pkg_file.ReadRaw<u8>(encrypted_pfs.data(), want) != want) {
             return false;
         }
+        std::fill(encrypted_pfs.begin() + static_cast<ptrdiff_t>(want), encrypted_pfs.end(),
+                  u8{0});
 
         PKG::crypto.decryptPFS(dataKey, tweakKey, encrypted_pfs, decrypted_pfs, current_sector);
         if (previous_data + sector_size > decrypted_pfs.size()) {
