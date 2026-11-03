@@ -21,7 +21,7 @@ public:
     CryptoPP::RSA::PrivateKey FakeKeyset_keyset_init();
     CryptoPP::RSA::PrivateKey DebugRifKeyset_init();
 
-    void RSA2048Decrypt(std::span<CryptoPP::byte, 32> dk3,
+    bool RSA2048Decrypt(std::span<CryptoPP::byte, 32> dk3,
                         std::span<const CryptoPP::byte, 256> ciphertext,
                         bool is_dk3); // RSAES_PKCS1v15_
     void ivKeyHASH256(std::span<const CryptoPP::byte, 64> cipher_input,

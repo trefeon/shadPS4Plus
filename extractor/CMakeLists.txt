@@ -1,10 +1,10 @@
-project(PkgExtractor)
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.20)
+project(PkgExtractor LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(ZLIB 1.3 MODULE)
+find_package(ZLIB 1.3 REQUIRED MODULE)
 
 include_directories(../src)
 include_directories(../externals)
@@ -28,3 +28,13 @@ set_property(TARGET libcryptopp PROPERTY IMPORTED_LOCATION "${CMAKE_CURRENT_BINA
 
 target_link_libraries(pkg_extractor PRIVATE libcryptopp)
 target_link_libraries(pkg_extractor PRIVATE ZLIB::ZLIB)
+
+include(CTest)
+if(BUILD_TESTING)
+	add_test(
+		NAME cli_invalid_pkg
+		COMMAND ${CMAKE_COMMAND}
+			"-DPKG_EXTRACTOR=$<TARGET_FILE:pkg_extractor>"
+			"-DTEST_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_invalid_pkg.cmake")
+endif()

@@ -103,7 +103,7 @@ public:
     ~PKG();
 
     bool Open(const std::filesystem::path& filepath, std::string& failreason);
-    void ExtractFiles(const int index);
+    bool ExtractFiles(const int index);
     bool Extract(const std::filesystem::path& filepath, const std::filesystem::path& extract,
                  std::string& failreason);
 
@@ -152,11 +152,11 @@ private:
     PKGHeader pkgheader;
     std::string pkgFlags;
 
-    std::unordered_map<int, std::filesystem::path> extractPaths;
+    std::unordered_map<u32, std::filesystem::path> extractPaths;
     std::vector<pfs_fs_table> fsTable;
     std::vector<Inode> iNodeBuf;
     std::vector<u64> sectorMap;
-    u64 pfsc_offset;
+    u64 pfsc_offset = 0;
 
     std::array<u8, 32> dk3_;
     std::array<u8, 32> ivKey;

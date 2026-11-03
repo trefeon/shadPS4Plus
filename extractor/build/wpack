@@ -1,8 +1,57 @@
-mkdir -p ./ShadPs4Plus-PkgExtractor-VERSION-windows
-cp /clang64/bin/zlib1.dll ./ShadPs4Plus-PkgExtractor-VERSION-windows/
-cp /clang64/bin/libc++.dll ./ShadPs4Plus-PkgExtractor-VERSION-windows/
-cp ./pkg_extractor.exe ./ShadPs4Plus-PkgExtractor-VERSION-windows/
-strip -s ./ShadPs4Plus-PkgExtractor-VERSION-windows/*
-cp ../install_pkg.bat ./ShadPs4Plus-PkgExtractor-VERSION-windows/
-cp ../batch_install.bat ./ShadPs4Plus-PkgExtractor-VERSION-windows/
-cp ../readme_windows.txt ./ShadPs4Plus-PkgExtractor-VERSION-windows/
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+
+if (( $# > 1 )); then
+    printf 'Usage: %s [version]\n' "${BASH_SOURCE[0]}" >&2
+    exit 1
+fi
+
+if (( $# == 1 )); then
+    VERSION="$1"
+else
+    VERSION="$(git -C "${REPO_ROOT}" rev-parse --short HEAD)"
+    if [[ -n "$(git -C "${REPO_ROOT}" status --porcelain --untracked-files=all)" ]]; then
+        VERSION="${VERSION}-local-$(date +%Y%m%d)"
+    fi
+fi
+
+if [[ ! "${VERSION}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    printf 'Invalid version string: %s\n' "${VERSION}" >&2
+    exit 1
+fi
+
+for command in git cygpath strip zip; do
+    if ! command -v "${command}" >/dev/null 2>&1; then
+        printf 'Required command not found: %s\n' "${command}" >&2
+        exit 1
+    fi
+done
+
+PACKAGE_BASENAME="ShadPs4Plus-PkgExtractor-${VERSION}-windows"
+PACKAGE_DIR="${SCRIPT_DIR}/${PACKAGE_BASENAME}"
+ARCHIVE_PATH="${SCRIPT_DIR}/${PACKAGE_BASENAME}.zip"
+
+if [[ -e "${PACKAGE_DIR}" || -e "${ARCHIVE_PATH}" ]]; then
+    printf 'Version output already exists: %s\n' "${VERSION}" >&2
+    exit 1
+fi
+if [[ ! -f "${SCRIPT_DIR}/pkg_extractor.exe" ]]; then
+    printf 'Build the extractor before packaging: %s/pkg_extractor.exe\n' "${SCRIPT_DIR}" >&2
+    exit 1
+fi
+
+mkdir "${PACKAGE_DIR}"
+cp -- /clang64/bin/zlib1.dll /clang64/bin/libc++.dll "${PACKAGE_DIR}/"
+cp -- "${SCRIPT_DIR}/pkg_extractor.exe" "${PACKAGE_DIR}/"
+PACKAGE_DIR_WIN="$(cygpath -w "${PACKAGE_DIR}")"
+strip -s "${PACKAGE_DIR_WIN}/pkg_extractor.exe" "${PACKAGE_DIR_WIN}/zlib1.dll" \
+    "${PACKAGE_DIR_WIN}/libc++.dll"
+cp -- "${SCRIPT_DIR}/../install_pkg.bat" "${SCRIPT_DIR}/../batch_install.bat" \
+    "${SCRIPT_DIR}/../readme_windows.txt" "${PACKAGE_DIR}/"
+(
+    cd "${SCRIPT_DIR}"
+    zip -q -r "${ARCHIVE_PATH}" "${PACKAGE_BASENAME}"
+)

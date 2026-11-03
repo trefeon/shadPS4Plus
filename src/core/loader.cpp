@@ -13,10 +13,15 @@ FileTypes DetectFileType(const std::filesystem::path& filepath) {
         return FileTypes::Unknown;
     }
     Common::FS::IOFile file;
-    file.Open(filepath, Common::FS::FileAccessMode::Read);
+    if (file.Open(filepath, Common::FS::FileAccessMode::Read) != 0) {
+        return FileTypes::Unknown;
+    }
     file.Seek(0);
-    u32 magic;
-    file.Read(magic);
+    u32 magic{};
+    if (!file.Read(magic)) {
+        file.Close();
+        return FileTypes::Unknown;
+    }
     file.Close();
     switch (magic) {
     case PkgMagic:

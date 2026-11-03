@@ -19,3 +19,7 @@ Set the values for gamesDir and addonsDir to the ones used in ShadPS4 (you can c
 The first argument is the path to the pkg file to extract.
 
 On Windows, you can drag and drop the pkg file onto the bat and it will extract it where it needs to be.
+
+# Building on Windows
+
+See [documents/building-windows.md](documents/building-windows.md) for MSYS2 CLANG64 build and packaging instructions.

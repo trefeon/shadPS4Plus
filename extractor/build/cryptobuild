@@ -1,5 +1,23 @@
-cd ../../externals/cryptopp
-make
-mkdir -p ../../extractor/build/cryptopp/cryptopp
-cp ./libcryptopp.a ../../extractor/build/cryptopp/cryptopp/libcryptopp.a
-cd ../../extractor/build
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+CRYPTOPP_DIR="${REPO_ROOT}/externals/cryptopp"
+DEST_DIR="${SCRIPT_DIR}/cryptopp/cryptopp"
+
+for command in make clang++; do
+    if ! command -v "${command}" >/dev/null 2>&1; then
+        printf 'Required command not found: %s\n' "${command}" >&2
+        exit 1
+    fi
+done
+
+if [[ ! -f "${CRYPTOPP_DIR}/GNUmakefile" ]]; then
+    printf 'Crypto++ source not found: %s\n' "${CRYPTOPP_DIR}" >&2
+    exit 1
+fi
+
+make -C "${CRYPTOPP_DIR}" CXX=clang++ static
+mkdir -p "${DEST_DIR}"
+cp -- "${CRYPTOPP_DIR}/libcryptopp.a" "${DEST_DIR}/libcryptopp.a"

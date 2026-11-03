@@ -3,6 +3,9 @@
 
 #include "SDL3/SDL_events.h"
 
+#include <atomic>
+#include <memory>
+
 #include <QDockWidget>
 #include <QKeyEvent>
 #include <QPlainTextEdit>
@@ -1219,8 +1222,13 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
                                                        dialog.size(), this->geometry()));
 
                 QFutureWatcher<void> futureWatcher;
+                auto extraction_succeeded = std::make_shared<std::atomic_bool>(true);
                 connect(&futureWatcher, &QFutureWatcher<void>::finished, this, [=, this]() {
-                    if (pkgNum == nPkg) {
+                    const bool extraction_result = extraction_succeeded->load();
+                    if (!extraction_result) {
+                        QMessageBox::critical(this, tr("PKG ERROR"),
+                                              tr("Failed to extract one or more PKG files."));
+                    } else if (pkgNum == nPkg) {
                         QString path;
 
                         // We want to show the parent path instead of the full path
@@ -1247,15 +1255,19 @@ void MainWindow::InstallDragDropPkg(std::filesystem::path file, int pkgNum, int 
                                 });
                         extractMsgBox.exec();
                     }
-                    if (delete_file_on_install) {
+                    if (extraction_result && delete_file_on_install) {
                         std::filesystem::remove(file);
                     }
                 });
                 connect(&dialog, &QProgressDialog::canceled, [&]() { futureWatcher.cancel(); });
                 connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged, &dialog,
                         &QProgressDialog::setValue);
-                futureWatcher.setFuture(
-                    QtConcurrent::map(indices, [&](int index) { pkg.ExtractFiles(index); }));
+                futureWatcher.setFuture(QtConcurrent::map(
+                    indices, [&, extraction_succeeded](int index) {
+                        if (!pkg.ExtractFiles(index)) {
+                            extraction_succeeded->store(false);
+                        }
+                    }));
                 dialog.exec();
             }
         }

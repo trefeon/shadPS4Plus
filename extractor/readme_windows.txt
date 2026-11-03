@@ -17,3 +17,10 @@
 	The first argument is the path to the pkg file to extract.
 	
 	Alternatively, you can drag and drop the pkg file onto the bat and it will extract it where it needs to be.
+
+
+3. batch_install.bat
+
+	Set gamesDir and addonsDir in install_pkg.bat before use.
+	Pass the directory containing the .pkg files as the first argument. Quote the path if it contains spaces.
+	The script reports invalid packages or installation errors and returns a nonzero exit code. An empty directory is a no-op.

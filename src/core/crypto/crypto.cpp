@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <array>
 
 #include "crypto.h"
@@ -69,7 +70,7 @@ CryptoPP::RSA::PrivateKey Crypto::DebugRifKeyset_init() {
     return privateKey;
 }
 
-void Crypto::RSA2048Decrypt(std::span<CryptoPP::byte, 32> dec_key,
+bool Crypto::RSA2048Decrypt(std::span<CryptoPP::byte, 32> dec_key,
                             std::span<const CryptoPP::byte, 256> ciphertext,
                             bool is_dk3) { // RSAES_PKCS1v15_
     // Create an RSA decryptor
@@ -87,9 +88,14 @@ void Crypto::RSA2048Decrypt(std::span<CryptoPP::byte, 32> dec_key,
 
     // Perform the decryption
     CryptoPP::AutoSeededRandomPool rng;
-    CryptoPP::DecodingResult result =
-        rsaDecryptor.Decrypt(rng, ciphertext.data(), decrypted.size(), decrypted.data());
-    std::copy(decrypted.begin(), decrypted.begin() + dec_key.size(), dec_key.begin());
+    const CryptoPP::DecodingResult result =
+        rsaDecryptor.Decrypt(rng, ciphertext.data(), ciphertext.size(), decrypted.data());
+    if (!result.isValidCoding || result.messageLength != dec_key.size()) {
+        return false;
+    }
+
+    std::copy_n(decrypted.begin(), dec_key.size(), dec_key.begin());
+    return true;
 }
 
 void Crypto::ivKeyHASH256(std::span<const CryptoPP::byte, 64> cipher_input,
@@ -190,7 +196,7 @@ void Crypto::decryptPFS(std::span<const CryptoPP::byte, 16> dataKey,
                         std::span<const CryptoPP::byte, 16> tweakKey, std::span<const u8> src_image,
                         std::span<CryptoPP::byte> dst_image, u64 sector) {
     // Start at 0x10000 to keep the header when decrypting the whole pfs_image.
-    for (int i = 0; i < src_image.size(); i += 0x1000) {
+    for (size_t i = 0; i < src_image.size(); i += 0x1000) {
         const u64 current_sector = sector + (i / 0x1000);
         CryptoPP::ECB_Mode<CryptoPP::AES>::Encryption encrypt(tweakKey.data(), tweakKey.size());
         CryptoPP::ECB_Mode<CryptoPP::AES>::Decryption decrypt(dataKey.data(), dataKey.size());

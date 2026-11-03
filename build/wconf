@@ -1,1 +1,29 @@
-cmake .. -G Ninja -DENABLE_QT_GUI=ON -DCMAKE_CXX_COMPILER=clang++.exe -DCMAKE_C_COMPILER=clang.exe -DCMAKE_PREFIX_PATH=D:\dev\qt\6.9.0\msvc2022_64
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+CRYPTOPP_DIR="${REPO_ROOT}/externals/cryptopp"
+EXTRACTOR_DIR="${REPO_ROOT}/extractor"
+BUILD_DIR="${EXTRACTOR_DIR}/build"
+
+for command in git make cmake ninja clang clang++ cygpath; do
+    if ! command -v "${command}" >/dev/null 2>&1; then
+        printf 'Required command not found: %s\n' "${command}" >&2
+        exit 1
+    fi
+done
+
+git -C "${REPO_ROOT}" submodule update --init --recursive externals/cryptopp
+if [[ ! -f "${CRYPTOPP_DIR}/GNUmakefile" ]]; then
+    printf 'Crypto++ submodule is missing its GNUmakefile: %s\n' "${CRYPTOPP_DIR}" >&2
+    exit 1
+fi
+
+bash "${EXTRACTOR_DIR}/build/cryptobuild"
+EXTRACTOR_DIR_WIN="$(cygpath -w "${EXTRACTOR_DIR}")"
+BUILD_DIR_WIN="$(cygpath -w "${BUILD_DIR}")"
+cmake -S "${EXTRACTOR_DIR_WIN}" -B "${BUILD_DIR_WIN}" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_COMPILER=clang++
+cmake --build "${BUILD_DIR_WIN}" --target pkg_extractor --config Release
