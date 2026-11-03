@@ -17,7 +17,8 @@ if [ "$addonsDir" == "PATH_TO_ADDONS_DIR" ]; then
 	exit
 fi
 
-`dirname $0`/pkg_extractor.AppImage "$1" --check-type
+SCRIPT_DIR="$(dirname -- "$0")"
+"${SCRIPT_DIR}/pkg_extractor.AppImage" "$1" --check-type
 
 ret="$?"
 
@@ -33,7 +34,7 @@ else
 		gamesDir=$addonsDir
 	fi
 	
-	`dirname $0`/pkg_extractor.AppImage "$1" $gamesDir
+	"${SCRIPT_DIR}/pkg_extractor.AppImage" "$1" "$gamesDir"
 fi
 
 echo "Press [enter] to close"
