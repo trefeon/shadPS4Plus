@@ -669,7 +669,12 @@ bool PKG::Extract(const std::filesystem::path& filepath, const std::filesystem::
         }
 
         if (block_index >= 1 && block_index <= inode_blocks) {
+            // Inode records never span PFSC blocks: each table block restarts
+            // the stride at offset zero, so drop any cross-block partial
+            // record instead of stitching bytes across the boundary.
             size_t offset = 0;
+            pending_inode_size = 0;
+            inode_padding_remaining = 0;
             while (offset < decompressed_data.size() && iNodeBuf.size() < inode_count) {
                 if (inode_padding_remaining != 0) {
                     const size_t padding =
