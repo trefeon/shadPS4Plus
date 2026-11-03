@@ -24,9 +24,9 @@
 #define fileno _fileno
 #define fseeko _fseeki64
 #define ftello _ftelli64
-#elif defined(__APPLE__)
-#define fseeko64 fseeko
-#define ftello64 ftello
+#elif defined(__MINGW32__)
+#define fseeko fseeko64
+#define ftello ftello64
 #endif
 
 namespace Common::FS {
